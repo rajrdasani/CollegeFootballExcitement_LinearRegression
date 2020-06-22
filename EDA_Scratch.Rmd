@@ -1,0 +1,105 @@
+---
+title: "Scratch"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(tidyr)
+```
+
+
+```{r}
+cfb <- read.csv("http://www.stat.cmu.edu/cmsac/sure/materials/data/regression_projects/cfb_2019_games.csv")
+head(cfb)
+```
+
+
+All games have an excitement level besides these two games:
+```{r}
+cfb[is.na(cfb$excitement_index),]
+
+cfb_ei <- cfb[-c(268,625),]
+```
+
+
+Algamation of all data transformations
+
+```{r}
+cfb$home_1sthalf <- cfb$home_1_pts + cfb$home_2_pts 
+cfb$home_2ndhalf <- cfb$home_3_pts + cfb$home_4_pts
+
+cfb$away_1sthalf <- cfb$away_1_pts + cfb$away_2_pts
+cfb$away_2ndhalf <- cfb$away_3_pts + cfb$away_4_pts
+
+cfb$margin_1sthalf <- cfb$home_1sthalf - cfb$away_1sthalf
+cfb$margin_game <- cfb$home_points - cfb$away_points
+
+cfb$comeback <- (cfb$margin_game / cfb$margin_1sthalf) < 0
+
+```
+
+
+
+Thought about looking at time but when we realized they were all in GMT, the effort to find the timezone for each stadium/home team and then change it is something we did not have time before.
+
+```{r}
+head(
+  cfb %>%
+  separate(col = start_date, into = c("date", "time"), sep = "T") %>%
+  separate(col = date, into = c("year", "month", "day"), sep = "-") %>%
+  separate(col = time, into = c("hour", "minutes"), sep = ":")
+)
+```
+
+
+```{r}
+ggplot(cfb_ei, aes(x = excitement_index)) +
+  geom_histogram(binwidth = 1)
+
+ggplot(cfb_ei, aes(x = excitement_index)) +
+  stat_ecdf()
+```
+
+
+```{r}
+ggplot(cfb_ei, aes(excitement_index, score_difference)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ylim(0, 80)
+```
+
+```{r}
+ggplot(cfb_ei, aes(home_points+away_points, excitement_index)) +
+  geom_point()
+
+cfb
+```
+
+
+
+
+
+
+```{r}
+cfb_ei %>%
+  group_by(week) %>%
+  summarize(avg_excitement = mean(excitement_index)) %>%
+  ggplot() +
+  geom_col(aes(x = week, y = avg_excitement))
+
+```
+
+
+
+```{r}
+cfb_ei %>%
+  group_by(comeback) %>%
+  summarise(avg_ei = mean(excitement_index)) %>%
+  ggplot(aes(comeback, avg_ei)) +
+  geom_col()
+
+```
+

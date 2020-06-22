@@ -1,0 +1,18 @@
+---
+title: "LinReg_Scratch"
+output: html_document
+---
+
+```{r}
+ggplot(cfb_ei, aes(excitement_index, score_difference)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ylim(0, 80)
+```
+
+```{r}
+summary(lm(excitement_index ~ score_difference * comeback + margin_1sthalf, cfb))
+
+
+```
+
