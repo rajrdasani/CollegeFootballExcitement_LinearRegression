@@ -4,6 +4,52 @@ output: html_document
 ---
 
 ```{r}
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(tidyverse)
+
+library(purrr)
+
+library(GGally)
+library(ggcorrplot)
+library(dendextend)
+```
+
+```{r}
+cfb <- read.csv("http://www.stat.cmu.edu/cmsac/sure/materials/data/regression_projects/cfb_2019_games.csv")
+head(cfb)
+```
+
+
+Algamation of all data transformations
+
+```{r}
+
+cfb$home_1sthalf <- cfb$home_1_pts + cfb$home_2_pts 
+cfb$home_2ndhalf <- cfb$home_3_pts + cfb$home_4_pts
+
+cfb$away_1sthalf <- cfb$away_1_pts + cfb$away_2_pts
+cfb$away_2ndhalf <- cfb$away_3_pts + cfb$away_4_pts
+
+cfb$margin_1sthalf <- cfb$home_1sthalf - cfb$away_1sthalf
+cfb$margin_game <- cfb$home_points - cfb$away_points
+
+cfb$comeback <- (cfb$margin_game / cfb$margin_1sthalf) < 0
+
+```
+
+
+All games have an excitement level besides these two games:
+```{r}
+cfb[is.na(cfb$excitement_index),]
+
+cfb_ei <- cfb[-c(268,625),]
+```
+
+
+```{r}
 ggplot(cfb_ei, aes(excitement_index, score_difference)) +
   geom_point() +
   geom_smooth(method = "lm") +
@@ -12,7 +58,166 @@ ggplot(cfb_ei, aes(excitement_index, score_difference)) +
 
 ```{r}
 summary(lm(excitement_index ~ score_difference * comeback + margin_1sthalf, cfb))
+```
 
 
+
+```{r}
+cfb_model <- cfb_ei %>%
+  dplyr::select(excitement_index, 
+                home_points,
+                home_1_pts, 
+                home_2_pts,
+                home_3_pts,
+                home_4_pts,
+                away_points,
+                away_1_pts,
+                away_2_pts,
+                away_3_pts,
+                away_4_pts,
+                score_difference,
+                home_1sthalf,
+                home_2ndhalf,
+                away_1sthalf,
+                away_2ndhalf,
+                margin_1sthalf,
+                margin_game)
+cfb_cor_matrix <- cor(cfb_model)
+ggcorrplot(cfb_cor_matrix)
+```
+
+```{r}
+round_cor_matrix <- 
+  round(cor(cfb_cor_matrix), 1)
+ggcorrplot(cfb_cor_matrix, 
+           hc.order = TRUE,
+           type = "lower")
+```
+
+```{r}
+cfb_ex_vars <- dplyr::select(cfb_model, -excitement_index)
+exp_cor_matrix <- cor(cfb_ex_vars)
+cor_dist_matrix <- 1 - abs(exp_cor_matrix)
+cor_dist_matrix <- as.dist(cor_dist_matrix)
+
+library(ggdendro)
+nfl_exp_hc <- hclust(cor_dist_matrix,
+                     "complete") 
+ggdendrogram(nfl_exp_hc,
+             rotate = TRUE,
+             size = 2)
+```
+
+```{r}
+cor_dist_matrix %>%
+  hclust() %>%
+  as.dendrogram() %>%
+  set("branches_k_col", 
+      k = 5) %>% 
+  set("labels_cex", .9) %>%
+  ggplot(horiz = TRUE)
+```
+
+
+
+```{r}
+cfb_select_model <- cfb_ei %>%
+  dplyr::select(excitement_index, 
+                score_difference,
+                comeback,
+                margin_1sthalf)
+cfb_select_cor_matrix <- cor(cfb_select_model)
+ggcorrplot(cfb_select_cor_matrix)
+```
+
+```{r}
+round_cor_matrix <- 
+  round(cor(cfb_select_cor_matrix), 2)
+ggcorrplot(cfb_select_cor_matrix, 
+           hc.order = TRUE,
+           type = "lower",
+           lab = TRUE)
+```
+
+```{r}
+cfb_ex_vars <- dplyr::select(cfb_select_model, -excitement_index)
+exp_cor_matrix <- cor(cfb_ex_vars)
+cor_dist_matrix <- 1 - abs(exp_cor_matrix)
+cor_dist_matrix <- as.dist(cor_dist_matrix)
+
+library(ggdendro)
+nfl_exp_hc <- hclust(cor_dist_matrix,
+                     "complete") 
+ggdendrogram(nfl_exp_hc,
+             rotate = TRUE,
+             size = 2)
+```
+
+```{r}
+ggpairs(cfb_select_model,
+        columns =
+          c("excitement_index", 
+                "score_difference",
+                'comeback',
+                'margin_1sthalf'))
+```
+
+
+
+```{r}
+set.seed(2020)
+cfb_select_model <- cfb_select_model %>%
+  mutate(test_fold = sample(rep(1:5, length.out = n())))
+```
+
+
+```{r}
+get_cv_preds <- function(model_formula, data = cfb_select_model) {
+  # generate holdout predictions for every row based season
+  map_dfr(unique(data$test_fold), 
+          function(holdout) {
+            # Separate test and training data:
+            test_data <- data %>%
+              filter(test_fold == holdout)
+            train_data <- data %>%
+              filter(test_fold != holdout)
+            
+            # Train model:
+            reg_model <- lm(as.formula(model_formula), data = train_data)
+            
+            # Return tibble of holdout results:
+            tibble(test_preds = predict(reg_model, newdata = test_data),
+                   test_actual = test_data$excitement_index,
+                   test_fold = holdout) 
+          })
+}
+
+```
+
+
+```{r}
+
+all_cv_preds <- get_cv_preds("excitement_index ~ score_difference + comeback + margin_1sthalf")
+all_int_cv_preds <- get_cv_preds("excitement_index ~ comeback * score_difference * margin_1sthalf")
+all_mixed_cv_preds <- get_cv_preds("excitement_index ~ comeback + score_difference * margin_1sthalf")
+all_score_cv_preds <- get_cv_preds("excitement_index ~ score_difference + margin_1sthalf")
+
+```
+
+```{r}
+bind_rows(mutate(all_cv_preds, type = "All"),
+          mutate(all_int_cv_preds, type = "All w/ interactions"),
+          mutate(all_score_cv_preds, type = "Scoring only"),
+          mutate(all_mixed_cv_preds, type = "mix")) %>%
+  group_by(type) %>%
+  summarize(rmse = sqrt(mean((test_actual - test_preds)^2))) %>%
+  mutate(type = fct_reorder(type, rmse)) %>%
+  ggplot(aes(x = type, y = rmse)) +
+  geom_point() + coord_flip() + theme_bw()
+```
+
+```{r}
+summary(lm(excitement_index ~ comeback + score_difference * margin_1sthalf, cfb_ei))
+summary(lm(excitement_index ~ comeback * score_difference * margin_1sthalf, cfb_ei))
 ```
 

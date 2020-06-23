@@ -17,14 +17,6 @@ head(cfb)
 ```
 
 
-All games have an excitement level besides these two games:
-```{r}
-cfb[is.na(cfb$excitement_index),]
-
-cfb_ei <- cfb[-c(268,625),]
-```
-
-
 Algamation of all data transformations
 
 ```{r}
@@ -39,6 +31,23 @@ cfb$margin_game <- cfb$home_points - cfb$away_points
 
 cfb$comeback <- (cfb$margin_game / cfb$margin_1sthalf) < 0
 
+cfb$overtime <- !((cfb$home_1_pts + cfb$home_2_pts + cfb$home_3_pts + cfb$home_4_pts) == cfb$home_points |
+                    (cfb$away_1_pts + cfb$away_2_pts + cfb$away_3_pts + cfb$away_4_pts) == cfb$away_points)
+```
+
+
+```{r}
+
+
+```
+
+
+
+All games have an excitement level besides these two games:
+```{r}
+cfb[is.na(cfb$excitement_index),]
+
+cfb_ei <- cfb[-c(268,625),]
 ```
 
 
@@ -66,16 +75,41 @@ ggplot(cfb_ei, aes(x = excitement_index)) +
 
 ```{r}
 ggplot(cfb_ei, aes(excitement_index, score_difference)) +
-  geom_point() +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime), alpha = 0.7) +
+  geom_smooth(method = "lm") +
+  scale_shape_manual(values = c(16, 3)) +
+  ylim(0, 80)
+
+ggplot(cfb_ei, aes(excitement_index, score_difference)) +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime)) +
   geom_smooth(method = "lm") +
   ylim(0, 80)
+
+ggplot(cfb_ei[cfb_ei$conference_game == FALSE, ], aes(excitement_index, score_difference)) +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime)) +
+  geom_smooth(method = "lm") +
+  ylim(0, 80)
+
+ggplot(cfb_ei[cfb_ei$conference_game == FALSE, ], aes(excitement_index, score_difference)) +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime)) +
+  geom_smooth(method = "lm") +
+  scale_shape_manual(values = c(16, 3)) +
+  ylim(0, 80)
+
 ```
+
+
+
+
+
+
 
 ```{r}
 ggplot(cfb_ei, aes(home_points+away_points, excitement_index)) +
-  geom_point()
+  geom_point() +
+  geom_smooth()
 
-cfb
+
 ```
 
 
@@ -98,8 +132,31 @@ cfb_ei %>%
 cfb_ei %>%
   group_by(comeback) %>%
   summarise(avg_ei = mean(excitement_index)) %>%
-  ggplot(aes(comeback, avg_ei)) +
+  ggplot(aes(comeback, avg_ei, fill = comeback)) +
   geom_col()
 
 ```
+
+```{r}
+cfb_ei %>%
+  group_by(comeback) %>%
+  summarise(avg_ei = mean(excitement_index)) %>%
+  ggplot(aes(comeback, avg_ei, fill = comeback)) +
+  geom_col()
+
+cfb_ei %>%
+  group_by(conference_game) %>%
+  summarise(avg_ei = mean(excitement_index)) %>%
+  ggplot(aes(conference_game, avg_ei, fill = conference_game)) +
+  geom_col()
+  
+```
+
+```{r}
+
+
+
+```
+
+
 
