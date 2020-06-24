@@ -1,0 +1,197 @@
+---
+title: "Inter-ConferenceBattles_EDA"
+output: html_document
+---
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(tidyr)
+```
+
+
+```{r}
+cfb <- read.csv("http://www.stat.cmu.edu/cmsac/sure/materials/data/regression_projects/cfb_2019_games.csv")
+head(cfb)
+```
+
+Algamation of all data transformations
+
+```{r}
+cfb$home_1sthalf <- cfb$home_1_pts + cfb$home_2_pts 
+cfb$home_2ndhalf <- cfb$home_3_pts + cfb$home_4_pts
+
+cfb$away_1sthalf <- cfb$away_1_pts + cfb$away_2_pts
+cfb$away_2ndhalf <- cfb$away_3_pts + cfb$away_4_pts
+
+cfb$margin_1sthalf <- cfb$home_1sthalf - cfb$away_1sthalf
+cfb$margin_game <- cfb$home_points - cfb$away_points
+
+cfb$comeback <- (cfb$margin_game / cfb$margin_1sthalf) < 0
+
+cfb$Overtime <- !((cfb$home_1_pts + cfb$home_2_pts + cfb$home_3_pts + cfb$home_4_pts) == cfb$home_points |
+                    (cfb$away_1_pts + cfb$away_2_pts + cfb$away_3_pts + cfb$away_4_pts) == cfb$away_points)
+```
+
+
+Some conference data is not included in this list, such as the "Big Sky", which gave us NA values for their away conference when they played teams in this dataset. So for future reasons, we will change all teams without a conference in the "Other" category.
+
+```{r}
+for (i in 1:length(cfb$X)) {
+  if (is.na(cfb$away_conference[i])) {
+    cfb$away_conference[i] = "Other"
+  }
+}
+```
+
+
+All games have an excitement level besides these two games:
+```{r}
+cfb[is.na(cfb$excitement_index),]
+
+cfb_ei <- cfb[-c(268,625),]
+```
+
+
+To start, the data gives us if if the game is a conference game or not, so let's see if that plays a factor to the excitment index:
+
+```{r}
+conf <- cfb_ei %>%
+  group_by(conference_game) %>%
+  summarise(avg_ei = mean(excitement_index))
+conf
+
+ggplot(conf, aes(conference_game, avg_ei, fill = conference_game)) +
+  geom_col()
+```
+
+The difference shows to be somewhat distinct, with a 0.6 difference of excitement games, in favor of conference games and this makes sense when thinking of level of competition. When some of the top teams in the nation play non-conference teams, most of the time there is a blowout, which lowers the excitment index as we showed before. 
+Let's see it on graphs:
+
+```{r}
+ggplot(cfb_ei, aes(score_difference, excitement_index, color = conference_game)) +
+  geom_point() +
+  geom_smooth()
+ggplot(cfb_ei[cfb_ei$conference_game == TRUE, ], aes(score_difference, excitement_index)) +
+  geom_point() +
+  geom_smooth() +
+  ggtitle("Margin vs Excitement: Conference Games Only")
+ggplot(cfb_ei[cfb_ei$conference_game == FALSE, ], aes(score_difference, excitement_index)) +
+  geom_point() + 
+  geom_smooth() +
+  ggtitle("Margin vs Excitement: Inter-Conference Games Only")
+```
+
+Via the graphs, both show pretty much the same pattern, with each having blowouts, but there is a selection of 10 inter-conference games, where the score difference was above 60 but had an average exictment index higher than the 40-60 range which I found intriguing. Maybe the blowouts were so massive the excitement index gave it a couple extra points.
+
+
+
+
+So now let's look more deeply into these conference variables to find if certain conferences had higher exictment indexes within their own conference or maybe even against other conferences:
+
+
+Let's start with grouping the home and away conferences together 
+```{r}
+conference_int <- cfb_ei %>%
+  group_by(home_conference, away_conference) %>%
+  summarise(num_games = n(),
+            avg_ei = mean(excitement_index))
+
+head(conference_int)
+```
+
+Let's start with looking at within conferences first
+
+```{r}
+conf_games <- conference_int[conference_int$home_conference == conference_int$away_conference, ]
+
+ggplot(conf_games) +
+  geom_col(aes(reorder(home_conference, -avg_ei, sum), avg_ei)) +
+  theme(axis.text.x=element_text(angle=20,hjust=1)) +
+  xlab("Conference") +
+  labs(title = "Avgerage Excitemnt for Conference Games",
+       subtitle = "H.Line at Average Excitement Index for All Games") +
+  geom_hline(yintercept=mean(cfb_ei$excitement_index))
+
+
+
+```
+
+
+Now lets go to conference vs conference games to see which conferences showed the highest index when battling each other
+
+We will initialize a "combined" metric that will be used to combine the average excitement index scores for conference matchups such combining as Big 10 @ Pac 12 games with Pac 12 @ Big 10 games
+
+```{r}
+conference_int$combined = 0
+
+
+for (i in 1:length(conference_int$num_games)) {
+  for (j in 1:length(conference_int$num_games)) {
+    #if conferences match, get weighted average of the excitement index
+    #with this way, there had to be at least one game that went each way 
+    #(Big 10 @ Pac 12 and Pac 12 @ Big 10)
+    if ((conference_int$home_conference[i] == conference_int$away_conference[j]) &&
+        (conference_int$home_conference[j] == conference_int$away_conference[i])) {
+      conference_int$combined[i] = ((conference_int$avg_ei[i] * conference_int$num_games[i]) + 
+                                      (conference_int$avg_ei[j] * conference_int$num_games[j])) / 
+                                      (conference_int$num_games[i] + conference_int$num_games[j])
+    }
+  }
+}
+
+conference_int[order(-conference_int$combined),]
+
+```
+
+According to this, we see that with the Big Ten and Pac-12, their average excitement index in the 3 games played played against each other, had an avereage of 6.07, the highest grouped excitement index we have seen throughout this entire project.
+
+
+
+```{r}
+conference_int$title = paste(conference_int$away_conference, "at", conference_int$home_conference)
+
+
+exciting_conf_matchups = conference_int[conference_int$combined > 5,]
+exciting_conf_matchups$home_conference[1] = "AA"
+exciting_conf_matchups$away_conference[5] = "AA"
+exciting_conf_matchups$home_conference[5] = "MW"
+exciting_conf_matchups$home_conference[6] = "MW"
+exciting_conf_matchups$away_conference[1] = "MW"
+exciting_conf_matchups$away_conference[3] = "MW"
+
+exciting_conf_matchups$title = paste(exciting_conf_matchups$away_conference, 
+                                     "at", 
+                                     exciting_conf_matchups$home_conference)
+
+exciting_conf_matchups[,c("title", "num_games", "avg_ei", "combined")]
+
+
+```
+
+```{r}
+ggplot(exciting_conf_matchups) +
+  geom_col(aes(reorder(title, -combined, sum), avg_ei)) +
+  theme(axis.text.x=element_text(angle=20,hjust=1))
+
+```
+
+```{r}
+exciting_conf_matchups$title2 <- paste(exciting_conf_matchups$home_conference,
+                                       "vs",
+                                       exciting_conf_matchups$away_conference)
+exciting_conf_matchups_filt <- exciting_conf_matchups[1:4,c("title2", "combined")]
+```
+
+```{r}
+ggplot(exciting_conf_matchups_filt) +
+  geom_col(aes(reorder(title2, -combined, sum), combined)) +
+  theme(axis.text.x=element_text(angle=20,hjust=1)) +
+  labs(title = "Most Exciting Inter-Conference Matchups",
+       subtitle = "H.Line at Average Excitement Index for All Games",
+       x = ) +
+  geom_hline(yintercept=mean(cfb_ei$excitement_index))
+```
+

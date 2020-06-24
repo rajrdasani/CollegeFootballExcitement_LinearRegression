@@ -1,5 +1,5 @@
 ---
-title: "LinReg_Scratch"
+title: "LinRegModeling"
 output: html_document
 ---
 
@@ -22,11 +22,9 @@ cfb <- read.csv("http://www.stat.cmu.edu/cmsac/sure/materials/data/regression_pr
 head(cfb)
 ```
 
-
 Algamation of all data transformations
 
 ```{r}
-
 cfb$home_1sthalf <- cfb$home_1_pts + cfb$home_2_pts 
 cfb$home_2ndhalf <- cfb$home_3_pts + cfb$home_4_pts
 
@@ -39,9 +37,12 @@ cfb$margin_game <- cfb$home_points - cfb$away_points
 cfb$comeback <- (cfb$margin_game / cfb$margin_1sthalf) < 0
 
 cfb$overtime <- !((cfb$home_1_pts + cfb$home_2_pts + cfb$home_3_pts + cfb$home_4_pts) == cfb$home_points |
-                    (cfb$away_1_pts + cfb$away_2_pts + cfb$away_3_pts + cfb$away_4_pts) == cfb$away_points)
 ```
 
+
+```{r}
+(cfb$away_1_pts + cfb$away_2_pts + cfb$away_3_pts + cfb$away_4_pts) == cfb$away_points)
+```
 
 All games have an excitement level besides these two games:
 ```{r}
@@ -50,7 +51,6 @@ cfb[is.na(cfb$excitement_index),]
 cfb_ei <- cfb[-c(268,625),]
 ```
 
-
 ```{r}
 ggplot(cfb_ei, aes(excitement_index, score_difference)) +
   geom_point() +
@@ -58,11 +58,10 @@ ggplot(cfb_ei, aes(excitement_index, score_difference)) +
   ylim(0, 80)
 ```
 
+
 ```{r}
-summary(lm(excitement_index ~ score_difference * comeback + margin_1sthalf, cfb))
+summary(lm(excitement_index ~ score_difference, cfb))
 ```
-
-
 
 ```{r}
 cfb_model <- cfb_ei %>%
@@ -88,6 +87,7 @@ cfb_cor_matrix <- cor(cfb_model)
 ggcorrplot(cfb_cor_matrix)
 ```
 
+
 ```{r}
 round_cor_matrix <- 
   round(cor(cfb_cor_matrix), 1)
@@ -97,41 +97,25 @@ ggcorrplot(cfb_cor_matrix,
 ```
 
 ```{r}
-cfb_ex_vars <- dplyr::select(cfb_model, -excitement_index)
-exp_cor_matrix <- cor(cfb_ex_vars)
-cor_dist_matrix <- 1 - abs(exp_cor_matrix)
-cor_dist_matrix <- as.dist(cor_dist_matrix)
-
-library(ggdendro)
-nfl_exp_hc <- hclust(cor_dist_matrix,
-                     "complete") 
-ggdendrogram(nfl_exp_hc,
-             rotate = TRUE,
-             size = 2)
+summary(lm(excitement_index ~ home_1sthalf, cfb))$r.squared
+summary(lm(excitement_index ~ away_1sthalf, cfb))$r.squared
+summary(lm(excitement_index ~ margin_1sthalf, cfb))$r.squared
+summary(lm(excitement_index ~ margin_game, cfb))$r.squared
 ```
-
-```{r}
-cor_dist_matrix %>%
-  hclust() %>%
-  as.dendrogram() %>%
-  set("branches_k_col", 
-      k = 5) %>% 
-  set("labels_cex", .9) %>%
-  ggplot(horiz = TRUE)
-```
-
-
 
 ```{r}
 cfb_select_model <- cfb_ei %>%
   dplyr::select(excitement_index, 
                 score_difference,
                 comeback,
+                home_1sthalf,
                 margin_1sthalf,
-                overtime)
+                overtime,
+                margin_game)
 cfb_select_cor_matrix <- cor(cfb_select_model)
 ggcorrplot(cfb_select_cor_matrix)
 ```
+
 
 ```{r}
 round_cor_matrix <- 
@@ -141,6 +125,7 @@ ggcorrplot(cfb_select_cor_matrix,
            type = "lower",
            lab = TRUE)
 ```
+
 
 ```{r}
 cfb_ex_vars <- dplyr::select(cfb_select_model, -excitement_index)
@@ -155,6 +140,7 @@ ggdendrogram(nfl_exp_hc,
              rotate = TRUE,
              size = 2)
 ```
+
 
 ```{r}
 ggpairs(cfb_select_model,
@@ -194,28 +180,72 @@ get_cv_preds <- function(model_formula, data = cfb_select_model) {
                    test_fold = holdout) 
           })
 }
-
-
 ```
 
 
 ```{r}
+test <- get_cv_preds("excitement_index ~ score_difference + margin_1sthalf")
 
-all_cv_preds <- get_cv_preds("excitement_index ~ score_difference + comeback + margin_1sthalf")
-all_int_cv_preds <- get_cv_preds("excitement_index ~ comeback * score_difference * margin_1sthalf")
-all_mixed_cv_preds <- get_cv_preds("excitement_index ~ comeback + score_difference * margin_1sthalf")
-all_mixed_cv_preds_overtime <- get_cv_preds("excitement_index ~ overtime + comeback + score_difference * margin_1sthalf")
-all_score_cv_preds <- get_cv_preds("excitement_index ~ score_difference + margin_1sthalf")
+test2 <- get_cv_preds("excitement_index ~ score_difference + home_1sthalf")
+
+test3 <- get_cv_preds("excitement_index ~ score_difference * margin_1sthalf")
+
+test4 <- get_cv_preds("excitement_index ~ score_difference * home_1sthalf")
+
+test5 <- get_cv_preds("excitement_index ~ margin_game + margin_1sthalf")
 
 
 ```
+
+```{r}
+ggplot(cfb_ei, aes(margin_game, excitement_index)) +
+  geom_point()
+```
+
+
+```{r}
+bind_rows(mutate(test, type = "Margin + ScoreDiff"),
+          mutate(test2, type = "Score_Diff + Home 1st Half"),
+          mutate(test3, type = "Score"),
+          mutate(test4, type = "4 + Comeback"),
+          mutate(test5, type = "5")) %>%
+  group_by(type) %>%
+  summarize(rmse = sqrt(mean((test_actual - test_preds)^2))) %>%
+  mutate(type = fct_reorder(type, rmse)) %>%
+  ggplot(aes(x = type, y = rmse)) +
+  geom_point() + coord_flip() + theme_bw()
+```
+
+
+
+
+```{r}
+all_cv_preds <- get_cv_preds("excitement_index ~ overtime + score_difference + comeback + margin_1sthalf")
+
+all_int_cv_preds <- get_cv_preds("excitement_index ~ overtime * comeback * score_difference * margin_1sthalf")
+
+
+score_int_add_overtime_preds <- get_cv_preds("excitement_index ~ overtime + 
+                                       score_difference * margin_1sthalf")
+
+score_int_add_comeback_preds <- get_cv_preds("excitement_index ~ comeback + 
+                                       score_difference * margin_1sthalf")
+
+
+score_int_add_booleans_preds <- get_cv_preds("excitement_index ~ overtime + comeback + 
+                                      score_difference * margin_1sthalf")
+
+scoring_only_preds <- get_cv_preds("excitement_index ~ score_difference + margin_1sthalf")
+```
+
+
 
 ```{r}
 bind_rows(mutate(all_cv_preds, type = "All Added"),
           mutate(all_int_cv_preds, type = "All Interacted"),
-          mutate(all_score_cv_preds, type = "Scoring only"),
-          mutate(all_mixed_cv_preds, type = "mix"),
-          mutate(all_mixed_cv_preds_overtime, type = "mix overtime")) %>%
+          mutate(score_int_add_overtime_preds, type = "ScoresInt + Overtime"),
+          mutate(score_int_add_comeback_preds, type = "ScoresInt + Comeback"),
+          mutate(score_int_add_booleans_preds, type = "ScoresInt + Booleans")) %>%
   group_by(type) %>%
   summarize(rmse = sqrt(mean((test_actual - test_preds)^2))) %>%
   mutate(type = fct_reorder(type, rmse)) %>%

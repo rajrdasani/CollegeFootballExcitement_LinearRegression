@@ -35,9 +35,14 @@ cfb$overtime <- !((cfb$home_1_pts + cfb$home_2_pts + cfb$home_3_pts + cfb$home_4
                     (cfb$away_1_pts + cfb$away_2_pts + cfb$away_3_pts + cfb$away_4_pts) == cfb$away_points)
 ```
 
+Some conference data is not included in this list, such as the "Big Sky", which gave us NA values for their away conference when they played teams in this dataset. So for future reasons, we will change all teams without a conference in the "Other" category.
 
 ```{r}
-
+for (i in 1:length(cfb$X)) {
+  if (is.na(cfb$away_conference[i])) {
+    cfb$away_conference[i] = "Other"
+  }
+}
 
 ```
 
@@ -69,32 +74,44 @@ ggplot(cfb_ei, aes(x = excitement_index)) +
   geom_histogram(binwidth = 1)
 
 ggplot(cfb_ei, aes(x = excitement_index)) +
+  geom_histogram(binwidth = .5)
+
+ggplot(cfb_ei, aes(x = excitement_index)) +
   stat_ecdf()
 ```
 
 
 ```{r}
 ggplot(cfb_ei, aes(excitement_index, score_difference)) +
-  geom_point(aes(color = comeback, shape = overtime, size = overtime), alpha = 0.7) +
+  geom_point(aes(color = comeback, shape = Overtime, size = Overtime), alpha = 0.7) +
   geom_smooth(method = "lm") +
   scale_shape_manual(values = c(16, 3)) +
   ylim(0, 80)
 
 ggplot(cfb_ei, aes(excitement_index, score_difference)) +
-  geom_point(aes(color = comeback, shape = overtime, size = overtime)) +
+  geom_point(aes(color = comeback, shape = Overtime, size = Overtime), alpha = 0.7) +
   geom_smooth(method = "lm") +
   ylim(0, 80)
 
 ggplot(cfb_ei[cfb_ei$conference_game == FALSE, ], aes(excitement_index, score_difference)) +
-  geom_point(aes(color = comeback, shape = overtime, size = overtime)) +
+  geom_point(aes(color = comeback, shape = Overtime, size = Overtime)) +
   geom_smooth(method = "lm") +
   ylim(0, 80)
 
 ggplot(cfb_ei[cfb_ei$conference_game == FALSE, ], aes(excitement_index, score_difference)) +
-  geom_point(aes(color = comeback, shape = overtime, size = overtime)) +
+  geom_point(aes(color = comeback, shape = Overtime, size = Overtime)) +
   geom_smooth(method = "lm") +
   scale_shape_manual(values = c(16, 3)) +
   ylim(0, 80)
+
+ggplot(cfb_ei[cfb_ei$conference_game == TRUE, ], aes(score_difference, excitement_index)) +
+  geom_point(aes(color = comeback, shape = Overtime, size = Overtime), alpha = 0.7) +
+  geom_smooth(method = "lm") +
+  ylim(0, 10) +
+  labs(caption = "Close Games, Overtimes, and Comebacks",
+       x = "Score Difference", 
+       y = "Excitement Index",
+       color = "Comeback")
 
 ```
 
@@ -153,10 +170,78 @@ cfb_ei %>%
 ```
 
 ```{r}
+conference_int <- cfb_ei %>%
+  group_by(home_conference, away_conference) %>%
+  summarise(num_games = n(),
+            avg_ei = mean(excitement_index))
 
 
+conference_int$combined = 0
+
+
+for (i in 1:length(conference_int$num_games)) {
+  for (j in 1:length(conference_int$num_games)) {
+    if ((conference_int$home_conference[i] == conference_int$away_conference[j]) &&
+        (conference_int$home_conference[j] == conference_int$away_conference[i])) {
+      conference_int$combined[i] = ((conference_int$avg_ei[i] * conference_int$num_games[i]) + 
+                                      (conference_int$avg_ei[j] * conference_int$num_games[j])) / 
+                                      (conference_int$num_games[i] + conference_int$num_games[j])
+    }
+  }
+}
+
+conference_int[order(-conference_int$combined),]
+
+conference_int$title = paste(conference_int$away_conference, "at", conference_int$home_conference)
+
+
+exciting_conf_matchups = conference_int[conference_int$combined > 5,]
+exciting_conf_matchups$home_conference[1] = "AA"
+exciting_conf_matchups$away_conference[5] = "AA"
+exciting_conf_matchups$home_conference[5] = "MW"
+exciting_conf_matchups$home_conference[6] = "MW"
+exciting_conf_matchups$away_conference[1] = "MW"
+exciting_conf_matchups$away_conference[3] = "MW"
+
+exciting_conf_matchups$title = paste(exciting_conf_matchups$away_conference, 
+                                     "at", 
+                                     exciting_conf_matchups$home_conference)
+
+
+
+ggplot(data = exciting_conf_matchups[order(-exciting_conf_matchups$combined),]) +
+  geom_col(aes(title, avg_ei)) +
+  theme(axis.text.x=element_text(angle=20,hjust=1))
 
 ```
 
+
+```{r}
+test <- cfb %>%
+  group_by(venue) %>%
+  summarise(num_games = n(),
+            avg_ei = mean(excitement_index))
+
+test[order(-test$avg_ei) ,]
+
+test <- cfb %>%
+  group_by(home_team) %>%
+  summarise(num_games = n(),
+            avg_ei = mean(excitement_index))
+
+test[order(-test$avg_ei) ,]
+
+cfb
+
+```
+
+```{r}
+mean(cfb_ei[cfb_ei$margin_game > 0,]$excitement_index)
+mean(cfb_ei[cfb_ei$margin_game < 0,]$excitement_index)
+
+mean(cfb_ei[cfb_ei$margin_game > 0 & cfb_ei$margin_game < 30,]$excitement_index)
+mean(cfb_ei[cfb_ei$margin_game < 0 & cfb_ei$margin_game > -30,]$excitement_index)
+
+```
 
 
