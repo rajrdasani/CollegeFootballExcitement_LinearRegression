@@ -16,6 +16,11 @@ cfb <- read.csv("http://www.stat.cmu.edu/cmsac/sure/materials/data/regression_pr
 head(cfb)
 ```
 
+```{r}
+cfb
+
+unique(cfb$home_conference)
+```
 
 Algamation of all data transformations
 
@@ -71,7 +76,10 @@ head(
 
 ```{r}
 ggplot(cfb_ei, aes(x = excitement_index)) +
-  geom_histogram(binwidth = 1)
+  geom_histogram(binwidth = 1, color = "black", fill = "gold4") +
+  stat_function(fun = dnorm) +
+  labs(title = "Normality of Excitement Index Variable",
+       x = "Excitement Index")
 
 ggplot(cfb_ei, aes(x = excitement_index)) +
   geom_histogram(binwidth = .5)
@@ -80,38 +88,51 @@ ggplot(cfb_ei, aes(x = excitement_index)) +
   stat_ecdf()
 ```
 
+```{r}
+ggplot(cfb_ei, aes(sample = excitement_index)) + 
+  stat_qq(color = "gold4") + 
+  stat_qq_line(color = "black") +
+  labs(title = "Q-Q Plot of Excitement Index")
+```
+
+
+
+
+
 
 ```{r}
 ggplot(cfb_ei, aes(excitement_index, score_difference)) +
-  geom_point(aes(color = comeback, shape = Overtime, size = Overtime), alpha = 0.7) +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime), alpha = 0.7) +
   geom_smooth(method = "lm") +
   scale_shape_manual(values = c(16, 3)) +
   ylim(0, 80)
 
 ggplot(cfb_ei, aes(excitement_index, score_difference)) +
-  geom_point(aes(color = comeback, shape = Overtime, size = Overtime), alpha = 0.7) +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime), alpha = 0.7) +
   geom_smooth(method = "lm") +
   ylim(0, 80)
 
 ggplot(cfb_ei[cfb_ei$conference_game == FALSE, ], aes(excitement_index, score_difference)) +
-  geom_point(aes(color = comeback, shape = Overtime, size = Overtime)) +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime)) +
   geom_smooth(method = "lm") +
   ylim(0, 80)
 
 ggplot(cfb_ei[cfb_ei$conference_game == FALSE, ], aes(excitement_index, score_difference)) +
-  geom_point(aes(color = comeback, shape = Overtime, size = Overtime)) +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime)) +
   geom_smooth(method = "lm") +
   scale_shape_manual(values = c(16, 3)) +
   ylim(0, 80)
 
 ggplot(cfb_ei[cfb_ei$conference_game == TRUE, ], aes(score_difference, excitement_index)) +
-  geom_point(aes(color = comeback, shape = Overtime, size = Overtime), alpha = 0.7) +
+  geom_point(aes(color = comeback, shape = overtime, size = overtime), alpha = 0.7) +
   geom_smooth(method = "lm") +
   ylim(0, 10) +
   labs(caption = "Close Games, Overtimes, and Comebacks",
        x = "Score Difference", 
        y = "Excitement Index",
        color = "Comeback")
+ggsave("FinalTakeaway_ScoreDifferencevsEI.jpeg", width = 8, height = 6)
+
 
 ```
 
@@ -123,10 +144,22 @@ ggplot(cfb_ei[cfb_ei$conference_game == TRUE, ], aes(score_difference, excitemen
 
 ```{r}
 ggplot(cfb_ei, aes(home_points+away_points, excitement_index)) +
-  geom_point() +
-  geom_smooth()
+  geom_point(color = "gold4") +
+  geom_smooth() +
+  xlab("Total Points") +
+  ylab("Excitement Index") +
+  ggtitle("Home+Away Points, Smoothed")
+ggsave("Points_vs_EI.jpg", width = 10, height = 6)
 
+ggplot(cfb_ei, aes(home_4_pts+away_4_pts, excitement_index)) +
+  geom_point(color = "gold4") +
+  geom_smooth() +
+  xlab("Total Points") +
+  ylab("Excitement Index") +
+  ggtitle("4th Quarter Total Points, Smoothed")
+ggsave("4thQPoints_vs_EI.jpg", width = 10, height = 6)
 
+  
 ```
 
 
@@ -137,9 +170,11 @@ ggplot(cfb_ei, aes(home_points+away_points, excitement_index)) +
 ```{r}
 cfb_ei %>%
   group_by(week) %>%
-  summarize(avg_excitement = mean(excitement_index)) %>%
+  summarize(avg_excitement = sum(excitement_index)) %>%
   ggplot() +
-  geom_col(aes(x = week, y = avg_excitement))
+  geom_col(aes(x = week, y = avg_excitement), color = "black", fill = "gold4") +
+  labs(x = "Week", 
+       y = "Total Excitement Level")
 
 ```
 
@@ -155,11 +190,31 @@ cfb_ei %>%
 ```
 
 ```{r}
+
+
+
+ggplot(conf, aes(conference_game, avg_ei, fill = conference_game)) +
+  geom_col() +
+  labs(x = "Conference Game",
+       y = "Average Excitement Index") +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("darkgray", "gold4")) +
+  geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white", size=10) +
+  theme(legend.position = "none")
+
+
 cfb_ei %>%
   group_by(comeback) %>%
   summarise(avg_ei = mean(excitement_index)) %>%
   ggplot(aes(comeback, avg_ei, fill = comeback)) +
-  geom_col()
+  geom_col() +
+  labs(x = "Comeback (After 1st Half)",
+       y = "Average Excitement Index") +
+  scale_fill_manual(values = c("darkgray", "gold4")) +
+  geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white", size=10) +
+  theme(legend.position = "none")
+
+  
 
 cfb_ei %>%
   group_by(conference_game) %>%
@@ -241,6 +296,39 @@ mean(cfb_ei[cfb_ei$margin_game < 0,]$excitement_index)
 
 mean(cfb_ei[cfb_ei$margin_game > 0 & cfb_ei$margin_game < 30,]$excitement_index)
 mean(cfb_ei[cfb_ei$margin_game < 0 & cfb_ei$margin_game > -30,]$excitement_index)
+
+```
+
+
+
+
+
+```{r}
+cfb_ei %>%
+  mutate(home_win = cfb_ei$margin_game > 0) %>%
+  select(excitement_index, home_win) %>%
+  group_by(home_win) %>%
+  summarise(avg_ei = mean(excitement_index)) %>%
+  ggplot(aes(y=avg_ei, x=home_win)) + 
+  geom_col() +
+  geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=10) +
+  xlab("Home Team Win") +
+  ylab("Excitement Index")
+
+cfb_ei %>%
+  mutate(home_win = cfb_ei$margin_game > 0) %>%
+  select(excitement_index, comeback, home_win) %>%
+  group_by(home_win, comeback) %>%
+  summarise(avg_ei = mean(excitement_index)) %>%
+  ggplot(aes(fill=comeback, y=avg_ei, x=home_win)) + 
+  geom_col(position="dodge", stat="identity") +
+  geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5) +
+  scale_fill_manual(values=c('gold4','darkgray')) +
+  xlab("Home Team Win") +
+  ylab("Excitement Index") +
+  labs(title = "Away Wins had higher Excitement Index Scores, expect with comeback games")
 
 ```
 

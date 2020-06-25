@@ -52,16 +52,32 @@ cfb_ei <- cfb[-c(268,625),]
 ```
 
 ```{r}
-ggplot(cfb_ei, aes(excitement_index, score_difference)) +
+ggplot(cfb_ei, aes(score_difference, excitement_index)) +
   geom_point() +
   geom_smooth(method = "lm") +
-  ylim(0, 80)
+  ylim(0, 10) +
+  labs(x = "Score Difference", y = "Excitement Index")
 ```
 
 
 ```{r}
 summary(lm(excitement_index ~ score_difference, cfb))
 ```
+
+
+```{r}
+ggplot(cfb, aes(margin_1sthalf)) +
+  geom_density() +
+  ggtitle("Density of 1st Half Margins") +
+  xlab("1st Half Margin")
+
+ggplot(cfb, aes(score_difference)) +
+  geom_density() +
+  ggtitle("Density of Score Differences") +
+  xlab("Score Difference")
+```
+
+
 
 ```{r}
 cfb_model <- cfb_ei %>%
@@ -197,23 +213,21 @@ test5 <- get_cv_preds("excitement_index ~ margin_game + margin_1sthalf")
 
 ```
 
-```{r}
-ggplot(cfb_ei, aes(margin_game, excitement_index)) +
-  geom_point()
-```
-
 
 ```{r}
-bind_rows(mutate(test, type = "Margin + ScoreDiff"),
-          mutate(test2, type = "Score_Diff + Home 1st Half"),
-          mutate(test3, type = "Score"),
-          mutate(test4, type = "4 + Comeback"),
-          mutate(test5, type = "5")) %>%
+bind_rows(mutate(test, type = "Score Diff + Margin 1st Half"),
+          mutate(test2, type = "Score Diff + Home 1st Half"),
+          mutate(test3, type = "Score Diff * Margin 1st Half"),
+          mutate(test4, type = "Score Diff * Home 1st Half"),
+          mutate(test5, type = "Margin Game + Margin 1st Half")) %>%
   group_by(type) %>%
   summarize(rmse = sqrt(mean((test_actual - test_preds)^2))) %>%
   mutate(type = fct_reorder(type, rmse)) %>%
   ggplot(aes(x = type, y = rmse)) +
-  geom_point() + coord_flip() + theme_bw()
+  geom_point() + coord_flip() + theme_bw() +
+  ggtitle("RMSE Values of Score Variables Combination") +
+  ylab("Root Mean Squared Error") +
+  xlab("Variable Combination")
 ```
 
 
@@ -250,23 +264,51 @@ bind_rows(mutate(all_cv_preds, type = "All Added"),
   summarize(rmse = sqrt(mean((test_actual - test_preds)^2))) %>%
   mutate(type = fct_reorder(type, rmse)) %>%
   ggplot(aes(x = type, y = rmse)) +
-  geom_point() + coord_flip() + theme_bw()
+  geom_point() + coord_flip() + theme_bw() +
+  ggtitle("RMSE Values of All Variables Combination") +
+  ylab("Root Mean Squared Error") +
+  xlab("Variable Combination")
+```
+
+
+```{r}
+all_lm <- lm(excitement_index ~ overtime + comeback + score_difference * margin_1sthalf, cfb_ei)
+all_scale_lm <-lm(excitement_index ~ scale(conference_game) + scale(comeback) + scale(overtime) + 
+             (scale(score_difference) * scale(margin_1sthalf)), cfb_ei)
+
+summary(all_scale_lm)
+```
+
+
+
+
+
+
+```{r}
+
+ggcoef(all_scale_lm,
+       vline = TRUE,
+       color = "gold4",
+       size = 3,
+       vline_color = "gold4",
+       errorbar_color = "blue",
+       errorbar_height = 0.5) +
+  theme_bw() +
+  xlab("Individual Slope Estimate") +
+  ylab("Scaled Variables")
+
+ggcoef(all_lm)
 ```
 
 ```{r}
-summary(lm(excitement_index ~ comeback + score_difference * margin_1sthalf, cfb_ei))
-summary(lm(excitement_index ~ comeback * score_difference * margin_1sthalf, cfb_ei))
-```
+cfb_ei %>%
+  mutate(init_preds = predict(all_lm)) %>%
+  ggplot(aes(x = excitement_index, y = init_preds)) +
+  geom_point(alpha = 0.75) +
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", color = "red") +
+  theme_bw() +
+  labs(x = "Observed Excitement Index", y = "Predicted Excitement Index", title = "Predicted vs. Observed Excitement Index")
 
-```{r}
-ggplot(cfb, aes(margin_1sthalf)) +
-  geom_density() +
-  ggtitle("Density of 1st Half Margins") +
-  xlab("1st Half Margin")
-
-ggplot(cfb, aes(score_difference)) +
-  geom_density() +
-  ggtitle("Density of Score Differences") +
-  xlab("Score Difference")
 ```
 

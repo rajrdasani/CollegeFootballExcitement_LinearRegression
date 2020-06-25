@@ -64,7 +64,12 @@ conf <- cfb_ei %>%
 conf
 
 ggplot(conf, aes(conference_game, avg_ei, fill = conference_game)) +
-  geom_col()
+  geom_col() +
+  labs(x = "Conference Game",
+       y = "Average Excitement Index") +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("darkgray", "gold4")) +
+  geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white", size=10)
 ```
 
 The difference shows to be somewhat distinct, with a 0.6 difference of excitement games, in favor of conference games and this makes sense when thinking of level of competition. When some of the top teams in the nation play non-conference teams, most of the time there is a blowout, which lowers the excitment index as we showed before. 
@@ -73,7 +78,13 @@ Let's see it on graphs:
 ```{r}
 ggplot(cfb_ei, aes(score_difference, excitement_index, color = conference_game)) +
   geom_point() +
-  geom_smooth()
+  geom_smooth() +
+  ggtitle("Insignificant Difference Between Conf. and Non-Conf. Games' Regression") +
+  xlab("Score Difference") +
+  ylab("Excitement Index") +
+  scale_color_discrete(name = "Conference Game")
+ggsave("ConferenceRegression.jpg", width = 10, height = 6)
+
 ggplot(cfb_ei[cfb_ei$conference_game == TRUE, ], aes(score_difference, excitement_index)) +
   geom_point() +
   geom_smooth() +
@@ -186,12 +197,15 @@ exciting_conf_matchups_filt <- exciting_conf_matchups[1:4,c("title2", "combined"
 ```
 
 ```{r}
-ggplot(exciting_conf_matchups_filt) +
-  geom_col(aes(reorder(title2, -combined, sum), combined)) +
+ggplot(exciting_conf_matchups_filt, aes(reorder(title2, -combined, sum), combined)) +
+  geom_col(fill = "gold4") +
   theme(axis.text.x=element_text(angle=20,hjust=1)) +
   labs(title = "Most Exciting Inter-Conference Matchups",
-       subtitle = "H.Line at Average Excitement Index for All Games",
-       x = ) +
-  geom_hline(yintercept=mean(cfb_ei$excitement_index))
+       subtitle = "H.Line at Average Excitement Index for All Games, about 3.96",
+       x = "Conference Matchups (at least 2 games)",
+       y = "Average Excitement Index") +
+  geom_hline(yintercept=mean(cfb_ei$excitement_index)) +
+  geom_text(aes(label=round(combined,2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=5)
 ```
 
