@@ -37,11 +37,7 @@ cfb$margin_game <- cfb$home_points - cfb$away_points
 cfb$comeback <- (cfb$margin_game / cfb$margin_1sthalf) < 0
 
 cfb$overtime <- !((cfb$home_1_pts + cfb$home_2_pts + cfb$home_3_pts + cfb$home_4_pts) == cfb$home_points |
-```
-
-
-```{r}
-(cfb$away_1_pts + cfb$away_2_pts + cfb$away_3_pts + cfb$away_4_pts) == cfb$away_points)
+                    (cfb$away_1_pts + cfb$away_2_pts + cfb$away_3_pts + cfb$away_4_pts) == cfb$away_points)
 ```
 
 All games have an excitement level besides these two games:
@@ -250,6 +246,10 @@ score_int_add_booleans_preds <- get_cv_preds("excitement_index ~ overtime + come
                                       score_difference * margin_1sthalf")
 
 scoring_only_preds <- get_cv_preds("excitement_index ~ score_difference + margin_1sthalf")
+
+final <- get_cv_preds("excitement_index ~ comeback + overtime + 
+             (scale(score_difference) * scale(margin_1sthalf))")
+
 ```
 
 
@@ -259,7 +259,8 @@ bind_rows(mutate(all_cv_preds, type = "All Added"),
           mutate(all_int_cv_preds, type = "All Interacted"),
           mutate(score_int_add_overtime_preds, type = "ScoresInt + Overtime"),
           mutate(score_int_add_comeback_preds, type = "ScoresInt + Comeback"),
-          mutate(score_int_add_booleans_preds, type = "ScoresInt + Booleans")) %>%
+          mutate(score_int_add_booleans_preds, type = "ScoresInt + Booleans"),
+          mutate(final, type = "final")) %>%
   group_by(type) %>%
   summarize(rmse = sqrt(mean((test_actual - test_preds)^2))) %>%
   mutate(type = fct_reorder(type, rmse)) %>%
@@ -273,19 +274,14 @@ bind_rows(mutate(all_cv_preds, type = "All Added"),
 
 ```{r}
 all_lm <- lm(excitement_index ~ overtime + comeback + score_difference * margin_1sthalf, cfb_ei)
-all_scale_lm <-lm(excitement_index ~ scale(conference_game) + scale(comeback) + scale(overtime) + 
+all_scale_lm <-lm(excitement_index ~ comeback + overtime + 
              (scale(score_difference) * scale(margin_1sthalf)), cfb_ei)
 
 summary(all_scale_lm)
 ```
 
 
-
-
-
-
 ```{r}
-
 ggcoef(all_scale_lm,
        vline = TRUE,
        color = "gold4",
@@ -295,7 +291,8 @@ ggcoef(all_scale_lm,
        errorbar_height = 0.5) +
   theme_bw() +
   xlab("Individual Slope Estimate") +
-  ylab("Scaled Variables")
+  ylab("Scaled Variables") +
+  ggtitle("Slope Estimates for Final Model")
 
 ggcoef(all_lm)
 ```
@@ -311,4 +308,5 @@ cfb_ei %>%
   labs(x = "Observed Excitement Index", y = "Predicted Excitement Index", title = "Predicted vs. Observed Excitement Index")
 
 ```
+
 

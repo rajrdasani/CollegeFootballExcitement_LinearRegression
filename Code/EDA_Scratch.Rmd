@@ -127,10 +127,11 @@ ggplot(cfb_ei[cfb_ei$conference_game == TRUE, ], aes(score_difference, excitemen
   geom_point(aes(color = comeback, shape = overtime, size = overtime), alpha = 0.7) +
   geom_smooth(method = "lm") +
   ylim(0, 10) +
-  labs(caption = "Close Games, Overtimes, and Comebacks",
+  labs(title = "Competitive Games Breed the Highest Excitmeent",
+       subtitle = "Close Games, Overtimes, and Comebacks",
        x = "Score Difference", 
        y = "Excitement Index",
-       color = "Comeback")
+       color = "Comeback") +
 ggsave("FinalTakeaway_ScoreDifferencevsEI.jpeg", width = 8, height = 6)
 
 
@@ -168,6 +169,15 @@ ggsave("4thQPoints_vs_EI.jpg", width = 10, height = 6)
 
 
 ```{r}
+cfb_ei %>%
+  group_by(week) %>%
+  summarize(avg_excitement = mean(excitement_index)) %>%
+  ggplot() +
+  geom_col(aes(x = week, y = avg_excitement), color = "black", fill = "gold4") +
+  labs(x = "Week", 
+       y = "Total Excitement Level",
+       title = "Average Excitement does not fluctuate per week")
+
 cfb_ei %>%
   group_by(week) %>%
   summarize(avg_excitement = sum(excitement_index)) %>%
@@ -212,7 +222,8 @@ cfb_ei %>%
        y = "Average Excitement Index") +
   scale_fill_manual(values = c("darkgray", "gold4")) +
   geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white", size=10) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") + 
+  ggtitle("Games with Comebacks Garner High Excitement")
 
   
 
@@ -328,7 +339,19 @@ cfb_ei %>%
   scale_fill_manual(values=c('gold4','darkgray')) +
   xlab("Home Team Win") +
   ylab("Excitement Index") +
-  labs(title = "Away Wins had higher Excitement Index Scores, expect with comeback games")
+  labs(title = "Trends of Home vs Away Wins Reversed when considering Comeback games") +
+  labs(fill = "Comeback")
+
+```
+
+```{r}
+cfb_ei[order(-cfb_ei$excitement_index),]
+```
+
+```{r}
+cfb_ei[379,]
+cfb_ei[471,]
+cfb_ei[288,]
 
 ```
 
