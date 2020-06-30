@@ -174,7 +174,7 @@ cfb_select_model <- cfb_select_model %>%
 
 ```{r}
 get_cv_preds <- function(model_formula, data = cfb_select_model) {
-  # generate holdout predictions for every row based season
+  # generate holdout predictions for every row 
   map_dfr(unique(data$test_fold), 
           function(holdout) {
             # Separate test and training data:

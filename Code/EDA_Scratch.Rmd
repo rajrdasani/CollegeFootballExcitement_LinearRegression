@@ -127,11 +127,12 @@ ggplot(cfb_ei[cfb_ei$conference_game == TRUE, ], aes(score_difference, excitemen
   geom_point(aes(color = comeback, shape = overtime, size = overtime), alpha = 0.7) +
   geom_smooth(method = "lm") +
   ylim(0, 10) +
-  labs(title = "Competitive Games Breed the Highest Excitmeent",
+  labs(title = "Competitive Games Breed the Highest Excitement",
        subtitle = "Close Games, Overtimes, and Comebacks",
        x = "Score Difference", 
        y = "Excitement Index",
        color = "Comeback") +
+  theme_bw()
 ggsave("FinalTakeaway_ScoreDifferencevsEI.jpeg", width = 8, height = 6)
 
 
@@ -171,12 +172,14 @@ ggsave("4thQPoints_vs_EI.jpg", width = 10, height = 6)
 ```{r}
 cfb_ei %>%
   group_by(week) %>%
-  summarize(avg_excitement = mean(excitement_index)) %>%
-  ggplot() +
-  geom_col(aes(x = week, y = avg_excitement), color = "black", fill = "gold4") +
+  summarize(avg_excitement = mean(excitement_index), se = sd(excitement_index) / sqrt(n())) %>%
+  ggplot(aes(x = week, y = avg_excitement)) +
+  geom_col(color = "black", fill = "gold4") +
   labs(x = "Week", 
        y = "Total Excitement Level",
-       title = "Average Excitement does not fluctuate per week")
+       title = "Average Excitement does not fluctuate per week") +
+  geom_errorbar(aes(ymin=avg_excitement-se, ymax=avg_excitement+se), width=.2,
+                 position=position_dodge(.9))
 
 cfb_ei %>%
   group_by(week) %>%
