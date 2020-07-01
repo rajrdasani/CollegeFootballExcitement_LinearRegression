@@ -79,7 +79,8 @@ ggplot(cfb_ei, aes(x = excitement_index)) +
   geom_histogram(binwidth = 1, color = "black", fill = "gold4") +
   stat_function(fun = dnorm) +
   labs(title = "Normality of Excitement Index Variable",
-       x = "Excitement Index")
+       x = "Excitement Index") +
+  theme_bw()
 
 ggplot(cfb_ei, aes(x = excitement_index)) +
   geom_histogram(binwidth = .5)
@@ -150,15 +151,16 @@ ggplot(cfb_ei, aes(home_points+away_points, excitement_index)) +
   geom_smooth() +
   xlab("Total Points") +
   ylab("Excitement Index") +
-  ggtitle("Home+Away Points, Smoothed")
-ggsave("Points_vs_EI.jpg", width = 10, height = 6)
-
+  ggtitle("Home+Away Points, Smoothed") +
+  theme_bw()
+ggsave("Points_vs_EI.jpg", width = 10, height = 6) 
 ggplot(cfb_ei, aes(home_4_pts+away_4_pts, excitement_index)) +
   geom_point(color = "gold4") +
   geom_smooth() +
   xlab("Total Points") +
   ylab("Excitement Index") +
-  ggtitle("4th Quarter Total Points, Smoothed")
+  ggtitle("4th Quarter Total Points, Smoothed") + 
+  theme_bw()
 ggsave("4thQPoints_vs_EI.jpg", width = 10, height = 6)
 
   
@@ -177,9 +179,12 @@ cfb_ei %>%
   geom_col(color = "black", fill = "gold4") +
   labs(x = "Week", 
        y = "Total Excitement Level",
-       title = "Average Excitement does not fluctuate per week") +
-  geom_errorbar(aes(ymin=avg_excitement-se, ymax=avg_excitement+se), width=.2,
-                 position=position_dodge(.9))
+       subtitle = "95% Confidence Intervals") +
+  geom_errorbar(aes(ymin=avg_excitement - (1.96*se), ymax=avg_excitement + (1.96*se)), width=.2,
+                 position=position_dodge(.9)) +
+  theme_bw()
+ggsave("AvgEIbyWeek.jpg", width = 10, height = 6)
+
 
 cfb_ei %>%
   group_by(week) %>%
@@ -187,7 +192,8 @@ cfb_ei %>%
   ggplot() +
   geom_col(aes(x = week, y = avg_excitement), color = "black", fill = "gold4") +
   labs(x = "Week", 
-       y = "Total Excitement Level")
+       y = "Total Excitement Level") +
+  theme_bw()
 
 ```
 
@@ -203,22 +209,9 @@ cfb_ei %>%
 ```
 
 ```{r}
-
-
-
-ggplot(conf, aes(conference_game, avg_ei, fill = conference_game)) +
-  geom_col() +
-  labs(x = "Conference Game",
-       y = "Average Excitement Index") +
-  theme(legend.position = "none") +
-  scale_fill_manual(values = c("darkgray", "gold4")) +
-  geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white", size=10) +
-  theme(legend.position = "none")
-
-
 cfb_ei %>%
   group_by(comeback) %>%
-  summarise(avg_ei = mean(excitement_index)) %>%
+  summarise(avg_ei = mean(excitement_index), se = sd(excitement_index) / sqrt(n())) %>%
   ggplot(aes(comeback, avg_ei, fill = comeback)) +
   geom_col() +
   labs(x = "Comeback (After 1st Half)",
@@ -226,7 +219,11 @@ cfb_ei %>%
   scale_fill_manual(values = c("darkgray", "gold4")) +
   geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white", size=10) +
   theme(legend.position = "none") + 
-  ggtitle("Games with Comebacks Garner High Excitement")
+  ggtitle("Games with Comebacks Garner High Excitement") +
+  labs(subtitle = "95% Confidence Intervals") +
+  geom_errorbar(aes(ymin=avg_ei - (1.96*se), ymax=avg_ei + (1.96*se)), width=.5,
+                 position=position_dodge(.9)) +
+  theme_bw()
 
   
 
@@ -298,10 +295,7 @@ test <- cfb %>%
   summarise(num_games = n(),
             avg_ei = mean(excitement_index))
 
-test[order(-test$avg_ei) ,]
-
-cfb
-
+head(test[order(-test$avg_ei) ,])
 ```
 
 ```{r}
@@ -328,27 +322,32 @@ cfb_ei %>%
   geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white",
             position = position_dodge(0.9), size=10) +
   xlab("Home Team Win") +
-  ylab("Excitement Index")
+  ylab("Excitement Index") +
+  theme_bw()
 
 cfb_ei %>%
   mutate(home_win = cfb_ei$margin_game > 0) %>%
   select(excitement_index, comeback, home_win) %>%
   group_by(home_win, comeback) %>%
-  summarise(avg_ei = mean(excitement_index)) %>%
+  summarise(avg_ei = mean(excitement_index), se = sd(excitement_index) / sqrt(n())) %>%
   ggplot(aes(fill=comeback, y=avg_ei, x=home_win)) + 
   geom_col(position="dodge", stat="identity") +
-  geom_text(aes(label=round(avg_ei,2)), vjust=1.6, color="white",
+  geom_text(aes(label=round(avg_ei,2)), vjust=3, color="white",
             position = position_dodge(0.9), size=3.5) +
   scale_fill_manual(values=c('gold4','darkgray')) +
   xlab("Home Team Win") +
   ylab("Excitement Index") +
-  labs(title = "Trends of Home vs Away Wins Reversed when considering Comeback games") +
-  labs(fill = "Comeback")
+  labs(title = "Trends of Home vs Away Wins Reversed when considering Comeback games",
+       subtitle = "95% Confidence Intervals") +
+  labs(fill = "Comeback") +
+  geom_errorbar(aes(ymin=avg_ei - (1.96*se), ymax=avg_ei + (1.96*se)), width=0.5,
+                 position=position_dodge(.9)) +
+  theme_bw()
 
 ```
 
 ```{r}
-cfb_ei[order(-cfb_ei$excitement_index),]
+head(cfb_ei[order(-cfb_ei$excitement_index),])
 ```
 
 ```{r}

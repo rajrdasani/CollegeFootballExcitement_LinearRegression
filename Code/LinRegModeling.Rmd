@@ -52,7 +52,8 @@ ggplot(cfb_ei, aes(score_difference, excitement_index)) +
   geom_point() +
   geom_smooth(method = "lm") +
   ylim(0, 10) +
-  labs(x = "Score Difference", y = "Excitement Index")
+  labs(x = "Score Difference", y = "Excitement Index") +
+  theme_bw()
 ```
 
 
