@@ -2,7 +2,7 @@
 ## Summary
 Presentation and Report of Linear Regression Analysis on the Excitement Levels of 2019 College Football Games (Total Time: 1 week)
 
-Skills: linear and logistic regression, cross validation (holdout analysis), coefficients, ggplot
+Skills: linear and logistic regression, cross validation (holdout analysis), ggplot
 
 ## Table of Contents 
 1. Exploratory Data Analysis
