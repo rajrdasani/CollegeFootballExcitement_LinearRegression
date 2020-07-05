@@ -1,4 +1,4 @@
-# CFB_LinearRegression
+# College Football Excitement Linear Regression Project
 ## Summary
 Presentation and Report of Linear Regression Analysis on the Excitement Levels of 2019 College Football Games (Total Time: 1 week)
 
